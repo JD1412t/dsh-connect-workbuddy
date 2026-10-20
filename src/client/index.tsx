@@ -39,6 +39,12 @@ import { ComposerCreditsGate } from './ComposerCreditsGate.tsx'
 import { selectQuotaNoticeClaim, WorkBuddyQuotaNotice } from './WorkBuddyQuotaNotice.tsx'
 import { en, zh } from './locales.ts'
 import type { WorkBuddySettingsKey } from './locales.ts'
+import {
+  WorkBuddyPanel,
+  WorkBuddyPanelIcon,
+  WORKBUDDY_PANEL_ID,
+  WORKBUDDY_PANEL_ORDER,
+} from './WorkBuddyPanel.tsx'
 
 /**
  * The browser-side plugin context this entry needs.
@@ -281,6 +287,90 @@ export function apply(ctx: WorkBuddyClientContext): void {
     }
 
     /**
+     * The `main` cell the sidebar entry opens.
+     *
+     * The sidebar button is only half of the feature: `ctx.layout.selectPanel(id)`
+     * `throw`s unless a `main` cell with that exact key is registered, so an
+     * icon without this registration renders a button that errors on click.
+     * Registered with the SAME key as the panellist id — see
+     * {@link WORKBUDDY_PANEL_ID} for why the equality is load-bearing.
+     *
+     * No `priority`: `main` is a keyed slot with one entry per key, and the
+     * host ships no competing occupant for this key, so a priority here would
+     * only add a number nobody reads. (The card's `priority: 30` exists because
+     * it competes with the host's own bundle-config card.)
+     */
+    const registerMainPanel = (): (() => void) | undefined => {
+      try {
+        return ctx.slots.inject('main' as never, () => (ctx.slots as unknown as {
+          register(
+            options: {
+              name: string
+              key: string
+              locale: string
+              inject: () => { t: WorkBuddyCardInjected['t'], settingsScope?: WorkBuddyCardInjected['settingsScope'] }
+            },
+            component: unknown,
+          ): () => void
+        }).register({
+          name: 'main',
+          key: WORKBUDDY_PANEL_ID,
+          locale: namespace,
+          inject: () => settingsScope === undefined ? { t } : { t, settingsScope },
+        }, WorkBuddyPanel))
+      } catch (error: unknown) {
+        console.error('[dsh-connect-workbuddy] main panel slot failed to register (host provider unaffected):', error)
+        return undefined
+      }
+    }
+
+    /**
+     * The sidebar button itself, in the host's global panel icon list.
+     *
+     * `sidebar.panellist` is a LIST slot the host sorts by `order` and renders
+     * as the sidebar's icon column — the button, its tooltip and its active
+     * state are all the host's, so this plugin contributes only a glyph and a
+     * label. `label` is passed as a thunk (the slot accepts `string |
+     * (() => string)`) so the copy follows a runtime language switch instead of
+     * being frozen at registration time.
+     *
+     * This is deliberately NOT `sidebar.footer.action`: that seat is a single
+     * root-level row every connector plugin competes for, which is why this
+     * plugin moved its readout out of it in the first place.
+     */
+    const registerPanelIcon = (): (() => void) | undefined => {
+      try {
+        return ctx.slots.inject('sidebar.panellist' as never, () => (ctx.slots as unknown as {
+          register(
+            options: {
+              name: string
+              id: string
+              order: number
+              label: () => string
+              locale: string
+            },
+            component: unknown,
+          ): () => void
+        }).register({
+          name: 'sidebar.panellist',
+          id: WORKBUDDY_PANEL_ID,
+          order: WORKBUDDY_PANEL_ORDER,
+          label: () => t('panel.sidebar'),
+          locale: namespace,
+        }, WorkBuddyPanelIcon))
+      } catch (error: unknown) {
+        console.error('[dsh-connect-workbuddy] sidebar.panellist slot failed to register (host provider unaffected):', error)
+        return undefined
+      }
+    }
+
+    /** Both halves of the sidebar entry; they live and die together. */
+    const registerPanelSlots = (): Array<() => void> => [
+      registerMainPanel(),
+      registerPanelIcon(),
+    ].filter((disposer): disposer is () => void => disposer !== undefined)
+
+    /**
      * Every slot this plugin contributes, and how to (re)create them.
      *
      * Kept as one list because the binding of `settingsScope` and the slot
@@ -301,6 +391,11 @@ export function apply(ctx: WorkBuddyClientContext): void {
       registerComposerCredits(),
       registerStatsCredits(),
       registerQuotaNotice(),
+      // The sidebar entry last: it is the only seat a user can reach WITHOUT
+      // first using a WorkBuddy model, so if anything above it fails it must
+      // still have been attempted — and it is the only pair here whose two
+      // halves depend on each other.
+      ...registerPanelSlots(),
     ].filter((disposer): disposer is () => void => disposer !== undefined)
 
     /**

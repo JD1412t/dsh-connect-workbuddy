@@ -844,3 +844,44 @@ export const WORKBUDDY_COMPOSER_CSS = `
 .dsm-workbuddy-composer-panel-empty{margin:0;color:var(--dsw-alias-label-tertiary,GrayText)}
 .dsm-workbuddy-composer-panel-error{margin:8px 0 0;color:var(--dsw-alias-state-error-primary,#d92d20);font-size:11px;line-height:16px}
 `
+
+/**
+ * Styles for the dedicated WorkBuddy page behind the sidebar entry.
+ *
+ * 参考：宿主自身的入口页版式（`@deepseek-ai/dsh-client-ui-plugin-manager` 的
+ *   `PluginManagerPage.module.css`）—— 同样的三段结构：整页滚动容器 + 内容
+ *   最大宽度、`> *` 限宽、`padding-top` 吃 `--dsh-frame-top-clearance`。
+ * 改动：① 类名是本插件的 `dsm-workbuddy-page-*`（不复用宿主私有类名，那类
+ *   名是 CSS Module 哈希，跨版本不稳定）；② 顶部留白只在 `[data-platform=darwin]`
+ *   下额外加 clearance —— Windows 的标题栏高度由宿主自己算进 clearance，再加
+ *   一次会把标题推到可视区外。
+ *
+ * Separate from the card bundle because the page is mounted WITHOUT the card's
+ * host: the sidebar entry can be the only thing that ever mounts this plugin's
+ * UI, and a stylesheet that only loads when the settings card mounts leaves the
+ * page unstyled (the referring project shipped exactly that with its composer
+ * readout — the panel rendered as a default box in the wrong place).
+ */
+export const WORKBUDDY_PANEL_CSS = `
+/* The page is a scrolling column: the host's main panel gives it the full
+   height, and long catalogs must scroll inside it rather than the shell. */
+.dsm-workbuddy-page{
+  box-sizing:border-box;height:100%;
+  color:var(--dsw-alias-label-primary,#e6e6e6);
+  display:flex;flex-direction:column;align-items:center;gap:24px;
+  padding:0 clamp(24px,4vw,48px) 48px;
+  overflow:auto;
+}
+/* One width rule for every child, so a section can never out-run the others. */
+.dsm-workbuddy-page>*{width:100%;max-width:960px}
+/* --dsh-frame-top-clearance is published by the shell's frame (macOS traffic
+   lights, Windows title bar). Entry pages in the main panel pad by it; the
+   Windows title bar is already counted, so only darwin adds it again. */
+.dsm-workbuddy-page-head{padding-top:28px}
+[data-platform=darwin] .dsm-workbuddy-page-head{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}
+.dsm-workbuddy-page-title{margin:0;font-size:20px;font-weight:500;line-height:28px}
+.dsm-workbuddy-page-intro{margin:8px 0 0;font-size:13px;line-height:20px;color:var(--dsw-alias-label-tertiary,#999)}
+/* The card is authored as a list row (<li>), so it needs the list reset here:
+   the host's own plugin list supplies it there. */
+.dsm-workbuddy-page-list{list-style:none;margin:0;padding:0}
+`

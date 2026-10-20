@@ -427,6 +427,9 @@ export const en = {
   'sidebar.lastRefresh': 'Last refreshed {time}',
   'sidebar.refreshFailed': 'Refresh failed',
   'sidebar.signedOut': 'Not signed in',
+  'panel.title': 'WorkBuddy',
+  'panel.intro': 'Accounts, models, and credits for both WorkBuddy providers. This page is always reachable — it does not depend on which model the current session is using.',
+  'panel.sidebar': 'WorkBuddy',
 } as const
 
 export type WorkBuddySettingsKey = keyof typeof en
@@ -804,4 +807,7 @@ export const zh: Record<WorkBuddySettingsKey, string> = {
   'sidebar.lastRefresh': '最近刷新 {time}',
   'sidebar.refreshFailed': '刷新失败',
   'sidebar.signedOut': '未登录',
+  'panel.title': 'WorkBuddy',
+  'panel.intro': '两个 WorkBuddy 供应商的账号、模型与积分。此页面始终可访问——不依赖当前会话正在使用哪个模型。',
+  'panel.sidebar': 'WorkBuddy',
 }

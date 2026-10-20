@@ -126,13 +126,16 @@ describe('WORKBUDDY_CARD_CSS template literal', () => {
     // statements. That is exactly what happened while reworking the veil.
     //
     // So count the file's top-level statements. A healthy styles.ts declares
-    // its CSS exports and nothing else; truncation turns the remainder into
-    // dozens of expression statements, one per token.
+    // exactly its three CSS exports — the card bundle, the composer readout,
+    // and the sidebar page — and nothing else; truncation turns the remainder
+    // into dozens of expression statements, one per token. The number is
+    // spelled out on purpose: a fourth stylesheet here is a real change and
+    // should be a deliberate edit to this line, not a silent pass.
     const source = readFileSync(fileURLToPath(new URL('src/client/styles.ts', repoRoot)), 'utf8')
     const sf = ts.createSourceFile('styles.ts', source, ts.ScriptTarget.ESNext, true)
     const strays = sf.statements.filter(st => !ts.isVariableStatement(st))
     expect(strays.map(st => ts.SyntaxKind[st.kind])).toEqual([])
-    expect(sf.statements.length).toBe(2)
+    expect(sf.statements.length).toBe(3)
   })
 
   it('still carries the veil rules the shared busy overlay depends on', () => {

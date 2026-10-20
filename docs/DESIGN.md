@@ -325,6 +325,7 @@ dsh-subagent-default-model (MIT) ──► dsh-connect-trae (MIT, LaoDing)      
 | `src/adapter.ts` | `dsh-workbuddy-connect` (MIT) → `dsh-codex-connect` (Apache-2.0) 转引 |
 | `src/bin.ts` / `src/host-heartbeat.ts` | `dsh-workbuddy-connect` (MIT)；改动：扩展多账号诊断 |
 | `src/catalog.ts` / `src/web-status.ts` / `src/client/*` | `dsh-connect-trae` (MIT) → `dsh-subagent-default-model` (MIT) 转引 |
+| `src/client/WorkBuddyPanel.tsx` | 无参考实现（原创）；形态参考宿主自身的全局面板（`sidebar.panellist` 图标 + 同名 `main` keyed 面板）；改动：图标用本插件自带 data URI，不依赖 `@deepseek-ai/dsh-client-ui-primitives`，正文复用 `WorkBuddyCard` |
 
 ### 5.4 分发层面
 

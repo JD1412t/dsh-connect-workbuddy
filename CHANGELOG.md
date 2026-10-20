@@ -1,5 +1,27 @@
 # Changelog
 
+## 4.12.0 (2026-10-20)
+
+> 版本号是 **minor** 而不是 patch：这一版新增了一个**用户可见的入口**（侧边栏里 WorkBuddy 自己的按钮）和它打开的**一个新页面** —— 按语义化版本这是特性，不是修错。它没有改任何接口、配置字段或已有席位的行为，也没有动 4.9.x / 4.10.x / 4.11.0 的任何一条修复。
+
+### Features
+
+- **积分/账号界面以前只有「当前会话正在用 WorkBuddy 模型」时才够得着 —— 现在侧边栏有一个常驻入口，就在插件按钮下方**
+  - **症状**：本插件的账号与积分界面（也就是设置卡片那张）有两个到达路径，**都要先满足一个前置条件**：
+    - `conversation.input.left` / `conversation.composer.dock` 两个读数是 **per-session 且按 provider 归属** 的，只有会话选中的模型属于本插件才渲染；
+    - `plugins.bundle.config` / `plugins.row.config` 那张卡片要**先打开插件管理页**才看得到。
+    结果是「让读数出现的动作」（登录、切账号、勾区域）**被藏在读数后面**：一个还没登录、或当前会话用的是别的 provider 的人，界面上没有任何地方能让他开始。更早放在 `sidebar.footer.action` 的版本也有同类问题 —— 那是**一个 root 级共享行**，两个连接器插件各占一行会互相挤压，这也是当初搬走的原因。
+  - **改了什么**：新增两个配套注册（**`sidebar.panellist` 的图标 + 同名的 `main` cell**），图标 `order: 5` —— 宿主按 `order` 升序渲染，插件管理器是 `0`、任务管理是 `10`，所以按钮落在**插件按钮正下方、任务上方**，也就是「我装的那个插件」这个位置。点击后宿主渲染 `main` 槽位里同名的页面，页面正文**直接复用 `WorkBuddyCard`**（`view="page"` 让它默认展开 —— 它在插件页是可折叠的一行，但在这里它是整页内容，折叠默认会渲染出空白页）。
+  - **两个席位必须用同一个字符串**，这是本条最容易改错、且类型系统完全看不见的地方：侧边栏的按钮只是画一个图标，点击走 `ctx.layout.selectPanel(id)`，而 `MainPanel` 是 `renderSlot("main", {}, { entryKey: activePanelId })` —— **只注册图标、不注册 `main` cell，按钮照样画出来、点了才抛** `layout.selectPanel: main panel "workbuddy" is not registered`。两侧都是 `'…' as never` 的插槽字符串（宿主自己对 `main` 的描述就是 "open: any string the owner dispatches (no compile-time key set)"），所以**没有任何编译期东西**把它们连起来。测试因此断言的是这个**连接**，而不是任何一半。
+  - **刻意不依赖 `@deepseek-ai/dsh-client-ui-primitives`**：宿主自己的面板图标（`PluginsPanelIcon` / `TaskManagerIcon`）是从那个包取 icon 组件的，但本插件的客户端**整条线都不依赖它**（`dsh.client.inject` 里也没有，见 `client-host-contract.spec.ts` 的守卫），为了一个图标引入它等于把按钮的到达时间绑在另一个包的装载上。所以图标用本插件自带的 `WORKBUDDY_PLUGIN_ICON`（data URI，与设置卡片同一个标记，按钮和它打开的页面看起来是同一件事）。图标**只吃 `size` 不吃 `active`**：宿主已经画了激活态，插件自己再上色要么是双重信号、要么跟主题打架。
+  - **`label` 传的是 thunk 而不是字符串**：插槽接受 `string | (() => string)`，传字面串会把标签冻在注册那一刻，运行时切语言后按钮会一直显示旧语言。
+  - **样式独立注入（`WORKBUDDY_PANEL_CSS`）**：这个页面可以在**设置卡片从未挂载过**的情况下单独挂载（侧边栏入口正是首次登录要走的路），所以样式不能寄生在卡片的 CSS 上 —— 那种寄生在上游项目里真出过一次：面板渲染成了默认方框、位置也不对。版式参考宿主的 `PluginManagerPage.module.css`（整页滚动列 + `> *` 限宽 + 顶部吃 `--dsh-frame-top-clearance`），但顶部 clearance **只在 `[data-platform=darwin]` 下额外加** —— Windows 的标题栏高度宿主已经算进 clearance 了，再加一次会把标题顶出可视区。
+  - **守卫**：新增 `tests/sidebar-panel.spec.tsx`（**13 例**）—— 注册侧 9 例（图标与 `main` 的 **id 相等**、两侧都有真实组件、`order` 落在 **(0, 10)** 窗口内（断言窗口而不是数值：未来宿主插进来一项可以改这个数，但排到插件之上或任务之下绝不是本意）、`label` 是 thunk、原有 7 个席位一个不少、**没有任何 settings 表单到达时也照样注册**（首装路径，卡片此时是只读的，而侧边栏入口正是唯一的出口）、两侧都带 `locale`、中英字典 `panel.*` 三键齐全且键集相等）+ 渲染侧 4 例（卡片**默认展开**、`li` 外面确实是 `ul`、标题取自 `panel.title` 而非卡片文案、图标用自带 data URI 且 `size` 真的到了 DOM 上）。
+  - **为什么这组测试跑的是真的 `apply()` 而不是 mirror**：仓库里几个老的客户端用例镜像 `apply()` 是因为当时 import 不进来浏览器专用包；jsdom 环境下真实入口可以 import（本条已实测）。而对这个特性来说 **mirror 恰好是要防的那个东西的载体** —— 本条要抓的缺陷就是「两个字符串不再相等」，一份镜像没有义务保持这个相等。
+  - **顺带**：`tests/client-host-contract.spec.ts` 里 `styles.ts` 顶层语句数的断言 `2 → 3`（新增第三个 CSS 常量）。那个数字是**故意写成字面量**的：加第四份样式表是一次真实改动，应当是一次对这行的显式编辑，而不是默默通过。
+  - **变异验证（9 个变异，全部转红）**：① `main` 的 key 改成另一个字符串（正是上面那个点击才抛的缺陷）→ 红 1 例；② `order` 改 0 → 红 1 例；③ `order` 改 10 → 红 1 例；④ 把 `...registerPanelSlots()` 从 `registerAllSlots` 里删掉 → 红 **7** 例；⑤ `label` 从 thunk 改成字符串 → 红 1 例；⑥ 去掉 `view="page"`（卡片默认折叠，页面空白）→ 红 1 例；⑦ `<ul>` 降级成 `<div>` → 红 1 例；⑧ 标题复用卡片已有的 key → 红 1 例；⑨ 图标忽略传入的 `size` → 红 1 例。
+  - **来源**：由本仓库所有者提出（「把入口放在侧边栏插件按钮下方」）。宿主侧的插槽契约来自运行中的 DSH（`sidebar.panellist` / `main` 的注册说明、`LayoutController.selectPanel` 的报错原文、`MainPanel` 的 `entryKey` 派发、插件管理器与任务管理器的 `order` 取值均已实机核对）。
+
 ## 4.10.1 (2026-10-20)
 
 > 版本号是 **patch**：没有接口、配置项或请求结构的变更，发往上游的请求体、路由 id、模型 id、凭据、计费与换号规则一律未变。**但它是 issue #77 的正解**——4.9.3 起的 `detail=fast` 只去掉了上游调用，真正吃掉 60 秒的本地开销一直没动；本版把每次打开设置页的 `reg query` 子进程从约 **135 个**降到 **3 个以内**。
